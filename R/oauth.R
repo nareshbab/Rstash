@@ -4,9 +4,9 @@ require(ROAuth)
 
 authenticate.sni <- function(consumerKey, rsa_key) {
 
-  reqURL = 'http://127.0.0.1:7990/plugins/servlet/oauth/request-token'
-  authURL = 'http://127.0.0.1:7990/plugins/servlet/oauth/authorize'
-  accessURL = 'http://127.0.0.1:7990/plugins/servlet/oauth/access-token'
+  reqURL = 'http://atlassian.client.research.att.com:7990/plugins/servlet/oauth/request-token'
+  authURL = 'http://atlassian.client.research.att.com:7990/plugins/servlet/oauth/authorize'
+  accessURL = 'http://atlassian.client.research.att.com:7990/plugins/servlet/oauth/access-token'
   cSecret <- key <- PKI.load.private.pem(rsa_key)
   cKey <- consumerKey
   

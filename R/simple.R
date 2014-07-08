@@ -6,7 +6,7 @@ redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE,
 create.snippet <- function(content, ctx = NULL){
   data <- fromJSON(content)
   data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"files" : [{ "name" : "Scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
-  curl <- paste0('curl -X POST -u nareshbabral:work4future -H "Content-Type:application/json" -d \'',data.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets')
+  curl <- paste0('curl -X POST -u naresh:work4future -H "Content-Type:application/json" -d \'',data.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets')
   response <- system(curl, intern=T)
   require(rredis)
   redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
@@ -19,13 +19,13 @@ create.snippet <- function(content, ctx = NULL){
 
 get.snippet <- function(id, version = NULL, ctx = NULL){
   if(!is.null(version)) {
-    curl <- paste0('curl -u nareshbabral:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',version,'')
+    curl <- paste0('curl -u naresh:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',version,'')
     res <- system(curl, intern=T)
     res <- .get.git.res(res)
     res$content$id <- id
     res
   }else { 
-    curl <- paste0('curl -u nareshbabral:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
+    curl <- paste0('curl -u naresh:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
     res <- system(curl, intern=T)
     if(length(grep("No such snippet", res)) == 0) {
       res <- .get.git.res(res)
@@ -70,12 +70,12 @@ modify.snippet <- function(id, content, ctx = NULL){
     }
     data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'" ,"files" : ',toJSON(files),' }')
     revision.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'" ,"files" : ',toJSON(files),' }')
-    curl.revision <- paste0('curl -X POST -u nareshbabral:work4future -H "Content-Type:application/json" -d \'',revision.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets')
+    curl.revision <- paste0('curl -X POST -u naresh:work4future -H "Content-Type:application/json" -d \'',revision.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets')
     revision.response <- system(curl.revision, intern=T)
     library(rredis)
     redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
     redisLPush(id, fromJSON(revision.response)[1])
-    curl <- paste0('curl -X PUT -u nareshbabral:work4future -H "Content-Type:application/json" -d \'',data.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
+    curl <- paste0('curl -X PUT -u naresh:work4future -H "Content-Type:application/json" -d \'',data.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
     response <- system(curl, intern=T)
     res <- .get.snippet.res(id)
     res <- .get.git.res(res)
@@ -87,13 +87,13 @@ modify.snippet <- function(id, content, ctx = NULL){
 }
 
 delete.snippet <- function(id){
-  curl <- paste0('curl -X DELETE -u nareshbabral:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
+  curl <- paste0('curl -X DELETE -u naresh:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
   res <- system(curl, intern=T)
   return(res)
 }
 
 fork.snippet <- function(id, ctx = NULL) {
-  curl <- paste0('curl -u nareshbabral:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
+  curl <- paste0('curl -u naresh:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
   snippet <- system(curl, intern=T)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -101,7 +101,7 @@ fork.snippet <- function(id, ctx = NULL) {
       files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
   }
   data.json <- paste0('{ "name" : "',snippet.list$name,'-Copy","description":"',snippet.list$name,'-Copy" ,"files" : ',toJSON(files),' }')
-  curl <- paste0('curl -X POST -u nareshbabral:work4future -H "Content-Type:application/json" -d \'',data.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets')
+  curl <- paste0('curl -X POST -u naresh:work4future -H "Content-Type:application/json" -d \'',data.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets')
   response <- system(curl, intern=T)
   res <- redisGet("notebook_res")
   res$content$id <- fromJSON(response)$guid
@@ -113,7 +113,7 @@ fork.snippet <- function(id, ctx = NULL) {
 get.snippet.comments <- function(id, ctx = NULL){
   library(rredis)
   redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
-  curl <- paste0('curl -u nareshbabral:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
+  curl <- paste0('curl -u naresh:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
   snippet <- system(curl, intern=T)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -141,7 +141,7 @@ get.snippet.comments <- function(id, ctx = NULL){
 }
 
 get.snippet.without.comments <- function(id, version = NULL){
-  curl <- paste0('curl -u nareshbabral:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
+  curl <- paste0('curl -u naresh:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
   snippet <- system(curl, intern=T)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
@@ -162,7 +162,7 @@ get.snippet.without.comments <- function(id, version = NULL){
 }
 
 get.snippet.user.comments <- function(id, user) {
-  curl <- paste0('curl -u nareshbabral:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
+  curl <- paste0('curl -u naresh:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
   snippet <- system(curl, intern=T)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -178,6 +178,13 @@ get.snippet.user.comments <- function(id, user) {
 .get.git.res <- function(snippet) {
   snippet.files <- fromJSON(snippet)$files
   file_names <- as.vector(sapply(snippet.files, function(o) o$name))
+  comments <- grep("comment", file_names)
+  if(length(comments) !=0 ) {
+    snippet.files <- snippet.files[-comments]
+    file_names <- file_names[-comments]
+  }
+  library(rredis)
+  redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   notebook <- redisGet("notebook_res")
   notebook$content$id <- fromJSON(snippet)$guid
   notebook$content$description <- fromJSON(snippet)$name
@@ -205,7 +212,7 @@ get.snippet.user.comments <- function(id, user) {
 }
 
 .get.snippet.res <- function(id) {
-  curl <- paste0('curl -u nareshbabral:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
+  curl <- paste0('curl -u naresh:work4future -H "Content-Type:application/json" http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
   res <- system(curl, intern=T)
   res
 }
@@ -222,7 +229,7 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
   len <- length(files)
   files[[len+1]] <- list(name=paste0("comment ",(comment.part+1),"-",fromJSON(snippet)$userId), content=fromJSON(content)$body)
   data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'" ,"files" : ',toJSON(files),' }')
-  curl <- paste0('curl -X PUT -u nareshbabral:work4future -H "Content-Type:application/json" -d \'',data.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
+  curl <- paste0('curl -X PUT -u naresh:work4future -H "Content-Type:application/json" -d \'',data.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
   res <- system(curl, intern=T)
   comment_res <- redisGet("post_comment_res")
   comment_res$content$body <- fromJSON(content)$body
