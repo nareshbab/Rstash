@@ -87,7 +87,7 @@ modify.snippet <- function(id, content, ctx = NULL){
 
 delete.snippet <- function(id){
   token <- redisGet("access_token")
-  sni.delete.request(id)
+  sni.delete.request(id, token)
 }
 
 fork.snippet <- function(id, ctx = NULL) {
