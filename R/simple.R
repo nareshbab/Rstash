@@ -5,20 +5,24 @@ require(PKI)
 redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
 
 create.snippet <- function(content, ctx = NULL){
+  
   require(rredis)
   redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   data <- fromJSON(content)
-  data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"files" : [{ "name" : "Scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
+  data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"files" : [{ "name" : "scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
   token <- redisGet("access_token")
   response <- sni.post.request(data.json, token)
   res <- redisGet("notebook_res")
   res$content$id <- fromJSON(response)$guid
+  redisLPush(fromJSON(response)$guid, fromJSON(response)[1])
   res$content$description <- fromJSON(response)$name
   res$content$user$id <- fromJSON(response)$userId
   res  
 }
 
 get.snippet <- function(id, version = NULL, ctx = NULL){
+  require(rredis)
+  redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   token <- redisGet("access_token")
   if(!is.null(version)) {
     res <- sni.get.request(version, token)
@@ -173,6 +177,9 @@ get.snippet.user.comments <- function(id, user) {
 }
 
 .get.git.res <- function(snippet) {
+  library(rredis)
+  redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
+  redisSet("snippet", snippet)
   snippet.files <- fromJSON(snippet)$files
   file_names <- as.vector(sapply(snippet.files, function(o) o$name))
   comments <- grep("comment", file_names)
@@ -180,12 +187,11 @@ get.snippet.user.comments <- function(id, user) {
     snippet.files <- snippet.files[-comments]
     file_names <- file_names[-comments]
   }
-  library(rredis)
-  redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   notebook <- redisGet("notebook_res")
   notebook$content$id <- fromJSON(snippet)$guid
   notebook$content$description <- fromJSON(snippet)$name
   notebook$content$user$id <- fromJSON(snippet)$userId
+  notebook$content$history[[1]]$user$id <- fromJSON(snippet)$userId
   for(i in 1:length(snippet.files)){
     notebook$content$files[i] <- notebook$content$files[1]
   }
@@ -205,10 +211,14 @@ get.snippet.user.comments <- function(id, user) {
     notebook$content$files[[i]]$filename <- file_names[i]
     notebook$content$files[[i]]$content <- snippet.files[[i]]$content
   }
+  #if(length(notebook$content$history) != length(notebook$content$history)) {
+
   return(notebook)
 }
 
 .get.snippet.res <- function(id) {
+  library(rredis)
+  redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   token <- redisGet("access_token")
   res <- sni.get.request(id, token)
   res
@@ -238,14 +248,14 @@ sni.post.request <- function(data.json, token, id = NULL) {
   cKey <- "naresh"
   cSecret <- PKI.load.private.pem("/home/naresh/mykey.pem")
   if(is.null(id)){
-    url <- "http://atlassian.client.research.att.com:7990/rest/snippets/1.0/snippets"
+    url <- "http://127.0.0.1:7990/rest/snippets/1.0/snippets"
     params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="POST", signMethod='RSA', handshakeComplete=handshakeComplete)
     params <- lapply(params, encodeURI.sni)
     auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "") 
     curl <- curlSetOpt(.opts=list(postfields=data.json, httpheader=c('Authorization'= auth , 'Content-Type' = 'application/json')), verbose=FALSE, curl=getCurlHandle())  
     sni <- postForm(url, curl=curl, style="POST")
   } else {
-    url <- paste0("http://atlassian.client.research.att.com:7990/rest/snippets/1.0/snippets/",id)
+    url <- paste0("http://127.0.0.1:7990/rest/snippets/1.0/snippets/",id)
     params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="PUT", signMethod='RSA', handshakeComplete=handshakeComplete)
     params <- lapply(params, encodeURI.sni)
     auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "") 
@@ -258,7 +268,7 @@ sni.post.request <- function(data.json, token, id = NULL) {
 sni.get.request <- function(id , token) {
   cKey <- "naresh"
   cSecret <- PKI.load.private.pem("/home/naresh/mykey.pem")
-  url <- paste0("http://atlassian.client.research.att.com:7990/rest/snippets/1.0/snippets/",id)
+  url <- paste0("http://127.0.0.1:7990/rest/snippets/1.0/snippets/",id)
   params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="GET", signMethod='RSA', handshakeComplete=handshakeComplete)
   params <- lapply(params, encodeURI.sni)
   auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "")
@@ -269,7 +279,7 @@ sni.get.request <- function(id , token) {
 sni.delete.request<- function(id, token) {
   cKey <- "naresh"
   cSecret <- PKI.load.private.pem("/home/naresh/mykey.pem")
-  url <- paste0("http://atlassian.client.research.att.com:7990/rest/snippets/1.0/snippets/",id)
+  url <- paste0("http://127.0.0.1:7990/rest/snippets/1.0/snippets/",id)
   params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="DELETE", signMethod='RSA', handshakeComplete=handshakeComplete)
   params <- lapply(params, encodeURI.sni)
   auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "")
