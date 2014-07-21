@@ -9,10 +9,14 @@ create.snippet <- function(content, ctx = NULL){
   require(rredis)
   redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   data <- fromJSON(content)
-  data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"files" : [{ "name" : "scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
+  data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"isVisible": true,"isPublic": true,"files" : [{ "name" : "scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
   token <- redisGet("access_token")
   response <- sni.post.request(data.json, token)
   res <- redisGet("notebook_res")
+  users <- redisGet("users")
+  index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(response)$userId))
+  user <- fromJSON(users)$values[[index]]$name
+  res$content$user$login <- user
   res$content$id <- fromJSON(response)$guid
   redisLPush(fromJSON(response)$guid, fromJSON(response)[1])
   res$content$description <- fromJSON(response)$name
@@ -179,7 +183,6 @@ get.snippet.user.comments <- function(id, user) {
 .get.git.res <- function(snippet) {
   library(rredis)
   redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
-  redisSet("snippet", snippet)
   snippet.files <- fromJSON(snippet)$files
   file_names <- as.vector(sapply(snippet.files, function(o) o$name))
   comments <- grep("comment", file_names)
@@ -192,6 +195,11 @@ get.snippet.user.comments <- function(id, user) {
   notebook$content$description <- fromJSON(snippet)$name
   notebook$content$user$id <- fromJSON(snippet)$userId
   notebook$content$history[[1]]$user$id <- fromJSON(snippet)$userId
+  users <- redisGet("users")
+  index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(snippet)$userId))
+  user <- fromJSON(users)$values[[index]]$name
+  notebook$content$user$login <- user
+  notebook$content$history[[1]]$user$login <- user
   for(i in 1:length(snippet.files)){
     notebook$content$files[i] <- notebook$content$files[1]
   }
