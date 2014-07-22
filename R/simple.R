@@ -64,6 +64,7 @@ modify.snippet <- function(id, content, ctx = NULL){
 	      files[[updated.parts]] <- list(name=names(content[[1]]), content=content[[1]][[1]][[1]]) 
 	    }
     } else {
+      if (length(fromJSON(content)$files) !=0) {
       updated.parts <- grep(names(fromJSON(content)[[1]]), fns)
       if (is.null(fromJSON(content)[[1]][[1]])) {
         files <- files[-updated.parts]
@@ -74,6 +75,9 @@ modify.snippet <- function(id, content, ctx = NULL){
 	    } else {
 	      files[[updated.parts]] <- list(name=names(fromJSON(content)[[1]]), content=fromJSON(content)[[1]][[1]][[1]]) 
 	    }
+      }
+      } else {
+        snippet.list$name <- fromJSON(content)$description
       }
     }
     library(rredis)
@@ -135,6 +139,11 @@ get.snippet.comments <- function(id, ctx = NULL){
   } else {
     comments <- redisGet("comment_res")
     comments.list <- fromJSON(comments)
+    users <- redisGet("users")
+    index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(snippet)$userId))
+    user <- fromJSON(users)$values[[index]]$name
+    comments.list[[1]]$user$login <- user
+    comments.list[[1]]$user$id <- fromJSON(snippet)$userId
     for(i in 1:length(files)){
       comments.list[[i]] <- comments.list[[1]]
       comments.list[[i]]$body <- files[[i]]$content
@@ -244,10 +253,15 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
   len <- length(files)
   files[[len+1]] <- list(name=paste0("comment ",(comment.part+1),"-",fromJSON(snippet)$userId), content=fromJSON(content)$body)
   data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'" ,"files" : ',toJSON(files),' }')
-  curl <- paste0('curl -X PUT -u nareshbabral:work4future -H "Content-Type:application/json" -d \'',data.json,'\' http://127.0.0.1:7990/rest/snippets/1.0/snippets/',id,'')
-  res <- system(curl, intern=T)
+  token <- redisGet("access_token")
+  res <- sni.post.request(data.json, token, id)
   comment_res <- redisGet("post_comment_res")
+  users <- redisGet("users")
+  index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(snippet)$userId))
+  user <- fromJSON(users)$values[[index]]$name
   comment_res$content$body <- fromJSON(content)$body
+  comment_res$content$user$login <- user
+  comment_res$content$user$id <- fromJSON(snippet)$userId
   comment_res
   return(comment_res)
 }
