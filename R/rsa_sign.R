@@ -97,7 +97,7 @@ signRequest.sni <- function(url, params, consumerKey, consumerSecret,
 	## note that we don't escape the args string again.
 	odat <- paste(c(sapply(c(httpMethod, url), escapeFun), args),
 			collapse = "&")
-	print(odat)
+	#print(odat)
 	sig <- signString.sni(odat, okey, signMethod)
 	params["oauth_signature"] <- sig
 	return(params)
