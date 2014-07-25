@@ -4,5 +4,4 @@ Title: R/Stash interface
 Author: Naresh Kumar <Naresh.kumar@mu-sigma.com>
 Maintainer: Naresh Kumar <Naresh.kumar@mu-sigma.com>
 Description: R/Stash interface - so far very rudimentary
-License: Apache-2.0
-URL: http://www.rforge.net/RLucene
+License: GPL 2.0
