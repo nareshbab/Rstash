@@ -15,7 +15,7 @@ create.snippet <- function(content, ctx = NULL){
   }
   data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
   token <- redisGet(paste0(ctx$user$login, "_access_token"))
-  response <- sni.post.request(data.json, token)
+  response <- sni.post.request(ctx, data.json, token)
   res <- .get.git.res(response)
   res  
 }
@@ -25,12 +25,12 @@ get.snippet <- function(id, version = NULL, ctx = NULL){
   redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   token <- redisGet(paste0(ctx$user$login, "_access_token"))
   if(!is.null(version)) {
-    res <- sni.get.request(version, token)
+    res <- sni.get.request(version, token, ctx)
     res <- .get.git.res(res)
     res$content$id <- id
     res
   }else { 
-    res <- sni.get.request(id, token)
+    res <- sni.get.request(id, token, ctx)
     if(length(grep("No such snippet", res)) == 0) {
       res <- .get.git.res(res)
       res
@@ -46,7 +46,7 @@ modify.snippet <- function(id, content, ctx = NULL){
   require(rredis, quietly= T)
   redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   token <- redisGet(paste0(ctx$user$login, "_access_token"))
-  snippet <- .get.snippet.res(id, token)
+  snippet <- .get.snippet.res(id, token, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
     snippet.files <- list()
@@ -76,10 +76,10 @@ modify.snippet <- function(id, content, ctx = NULL){
     }
     data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(snippet.files),' }')
     revision.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(snippet.files),' }')
-    revision.response <- sni.post.request(revision.json, token)
+    revision.response <- sni.post.request(ctx , revision.json, token)
     redisLPush(id, fromJSON(revision.response)[1])
-    response <- sni.post.request(data.json, token, id)
-    res <- .get.snippet.res(id, token)
+    response <- sni.post.request(ctx, data.json, token, id) 
+    res <- .get.snippet.res(id, token, ctx)
     res <- .get.git.res(res)
     res
   } else {
@@ -90,21 +90,21 @@ modify.snippet <- function(id, content, ctx = NULL){
 
 delete.snippet <- function(id, ctx = NULL){
   token <- redisGet(paste0(ctx$user$login, "access_token"))
-  sni.delete.request(id, token)
+  sni.delete.request(id, token, ctx)
 }
 
 fork.snippet <- function(id, ctx = NULL) {
   require(rredis, quietly= T)
   redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   token <- redisGet(paste0(ctx$user$login, "_access_token"))
-  snippet <- sni.get.request(id, token)
+  snippet <- sni.get.request(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
   for(i in 1:length(snippet.list$files)){
       files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
   }
   data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
-  response <- sni.post.request(data.json, token)
+  response <- sni.post.request(ctx, data.json, token)
   res <- .get.git.res(response)
   res
 }
@@ -113,7 +113,7 @@ get.snippet.comments <- function(id, ctx = NULL){
   library(rredis, quietly= T)
   redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   token <- redisGet(paste0(ctx$user$login, "_access_token"))
-  snippet <- sni.get.request(id, token)
+  snippet <- sni.get.request(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
   for(i in 1:length(snippet.list$files)){
@@ -151,7 +151,7 @@ get.snippet.comments <- function(id, ctx = NULL){
 
 get.snippet.without.comments <- function(id, version = NULL){
   token <- redisGet("access_token")
-  snippet <- sni.get.request(id, token)
+  snippet <- sni.get.request(id, token, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
     files <- list()
@@ -172,7 +172,7 @@ get.snippet.without.comments <- function(id, version = NULL){
 
 get.snippet.user.comments <- function(id, user) {
   token <- redisGet("access_token")
-  snippet <- sni.get.request(id, token)
+  snippet <- sni.get.request(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
   for(i in 1:length(snippet.list$files)){
@@ -233,11 +233,10 @@ get.snippet.user.comments <- function(id, user) {
   return(notebook)
 }
 
-.get.snippet.res <- function(id, token) {
+.get.snippet.res <- function(id, token, ctx) {
   require(rredis, quietly= T)
   redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
-  #token <- redisGet("access_token")
-  res <- sni.get.request(id, token)
+  res <- sni.get.request(id, token, ctx)
   res
 }
 
@@ -245,7 +244,7 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
   require(rredis, quietly= T)
   redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   token <- redisGet(paste0(ctx$user$login, "_access_token"))
-  snippet <- .get.snippet.res(id, token)
+  snippet <- .get.snippet.res(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
   for(i in 1:length(snippet.list$files)){
@@ -257,7 +256,7 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
   files[[len+1]] <- list(name=paste0("comment ",(comment.part+1),"-",fromJSON(snippet)$userId), content=fromJSON(content)$body)
   data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(files),' }')
   #token <- redisGet("access_token")
-  res <- sni.post.request(data.json, token, id)
+  res <- sni.post.request(ctx, data.json, token, id)
   comment_res <- redisGet("post_comment_res")
   users <- redisGet("users")
   index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(snippet)$userId))
@@ -269,18 +268,18 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
   return(comment_res)
 }
 
-sni.post.request <- function(data.json, token, id = NULL) {
-  cKey <- "naresh"
-  cSecret <- PKI.load.private.pem("/home/nk658v/mykey.pem")
+sni.post.request <- function(ctx, data.json, token, id = NULL) {
+  cKey <- ctx$ckey
+  cSecret <- PKI.load.private.pem(ctx$rsakey)
   if(is.null(id)){
-    url <- "http://atlassian.client.research.att.com:7990/rest/snippets/1.0/snippets"
+    url <- ctx$stash.api.url
     params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="POST", signMethod='RSA', handshakeComplete=handshakeComplete)
     params <- lapply(params, encodeURI.sni)
     auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "") 
     curl <- curlSetOpt(.opts=list(postfields=data.json, httpheader=c('Authorization'= auth , 'Content-Type' = 'application/json')), verbose=FALSE, curl=getCurlHandle())  
     sni <- postForm(url, curl=curl, style="POST")
   } else {
-    url <- paste0("http://atlassian.client.research.att.com:7990/rest/snippets/1.0/snippets/",id)
+    url <- paste0(ctx$stash.api.url ,"/",id)
     params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="PUT", signMethod='RSA', handshakeComplete=handshakeComplete)
     params <- lapply(params, encodeURI.sni)
     auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "") 
@@ -290,10 +289,10 @@ sni.post.request <- function(data.json, token, id = NULL) {
   
 }
 
-sni.get.request <- function(id , token) {
-  cKey <- "naresh"
-  cSecret <- PKI.load.private.pem("/home/nk658v/mykey.pem")
-  url <- paste0("http://atlassian.client.research.att.com:7990/rest/snippets/1.0/snippets/",id)
+sni.get.request <- function(id , token, ctx) {
+  cKey <- ctx$ckey
+  cSecret <- PKI.load.private.pem(ctx$rsakey)
+  url <- paste0(ctx$stash.api.url,"/",id)
   params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="GET", signMethod='RSA', handshakeComplete=handshakeComplete)
   params <- lapply(params, encodeURI.sni)
   auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "")
@@ -301,10 +300,10 @@ sni.get.request <- function(id , token) {
   getURL(url,curl=curl)
 }
 
-sni.delete.request<- function(id, token) {
-  cKey <- "naresh"
-  cSecret <- PKI.load.private.pem("/home/nk658v/mykey.pem")
-  url <- paste0("http://atlassian.client.research.att.com:7990/rest/snippets/1.0/snippets/",id)
+sni.delete.request<- function(id, token, ctx) {
+  cKey <- ctx$ckey
+  cSecret <- PKI.load.private.pem(ctx$rsakey)
+  url <- paste0(ctx$stash.api.url,"/",id)
   params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="DELETE", signMethod='RSA', handshakeComplete=handshakeComplete)
   params <- lapply(params, encodeURI.sni)
   auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "")
