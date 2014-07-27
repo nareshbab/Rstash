@@ -12,8 +12,8 @@ create.snippet(content, ctx = myctx)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{content}{Json: Includes files to be created in snippet}
-  \item{ctx}{List: List of snippet context containing stash API Url, RSA key path, consumer secret key and user name}
+  \item{content}{json: Includes files to be created in snippet}
+  \item{ctx}{list: List of snippet context containing stash API Url, RSA key path, consumer secret key and user name}
 }
 \details{
   This function creates a snippet in stash containing all the files that are passed in content JSON.

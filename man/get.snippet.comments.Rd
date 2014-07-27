@@ -12,8 +12,8 @@ get.snippet.comments(id,ctx = myctx)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{id}{Character: Snippet id}
-  \item{ctx}{List: List of snippet context containing stas API Url,RSA key path,consumer secret key and user name}
+  \item{id}{character: Snippet id}
+  \item{ctx}{list: List of snippet context containing stas API Url,RSA key path,consumer secret key and user name}
 }
 \details{
   This function gets the list of comments in the snippet
@@ -32,6 +32,6 @@ get.snippet.comments(id,ctx = myctx)
 %\note{
 %}
 \examples{
-res <- get.snippet.comments(id,ctx = .session$snippet.context)
+res <- get.snippet.comments(id, ctx = .session$snippet.context)
 }
 

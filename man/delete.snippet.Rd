@@ -11,8 +11,8 @@
 delete.snippet(id,ctx = myctx)
 }
 \arguments{
-  \item{id} {character: Snippet id}
-  \item{ctx} {list: List of snippet context containing stas API Url,RSA key path,consumer secret key and user name}
+  \item{id}{character: Snippet id}
+  \item{ctx}{list: List of snippet context containing stas API Url,RSA key path,consumer secret key and user name}
 }
 \details{
   This function is used to delete a snippet based on snippet id

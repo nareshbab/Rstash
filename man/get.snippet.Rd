@@ -11,9 +11,9 @@
 get.snippet(id, version, ctx = myctx)
 }
 \arguments{
-  \item{id} {character: Snippet id}
-  \item{version} {character: History version of the snippet id}
-  \item{ctx} {list: List of snippet context containing stas API Url,RSA key path,consumer secret key and user name}
+  \item{id}{character: Snippet id}
+  \item{version}{character: History version of the snippet id}
+  \item{ctx}{list: List of snippet context containing stas API Url,RSA key path,consumer secret key and user name}
 }
 \details{
   This function is basicaly used to query the snippet API by snippet id.

@@ -12,8 +12,8 @@ fork.snippet(id, ctx = myctx)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{id} {character: Snippet id}
-  \item{ctx} {list: List of snippet context containing stas API Url,RSA key path,consumer secret key and user name}
+  \item{id}{character: Snippet id}
+  \item{ctx}{list: List of snippet context containing stas API Url,RSA key path,consumer secret key and user name}
 }
 \details{
   This function is used to create a copy of snippet.
