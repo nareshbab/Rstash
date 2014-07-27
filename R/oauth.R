@@ -1,7 +1,6 @@
 require(PKI)
 
 authenticate.sni <- function(consumerKey, rsa_key, reqURL) {
-
   cSecret <- key <- PKI.load.private.pem(rsa_key)
   cKey <- consumerKey
   resp <- oauthPOST.sni(url = reqURL,

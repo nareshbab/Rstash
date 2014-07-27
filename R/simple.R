@@ -1,29 +1,26 @@
-require(rredis, quietly= T)
 require(rjson)
 require(httr)
 require(PKI)
-redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
 
 create.snippet <- function(content, ctx = NULL){
-  
-  require(rredis, quietly= T)
-  redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   data <- fromJSON(content)  
   files <- list()
+  redis.set(.session$rc, "ctx", ctx)
+  ##Reading all files to be created in snippet
   for(i in 1:length(data$files)){
     files[[i]] <- list(name= names(data$files[i]), content = data$files[[i]]$content)
   }
   data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
-  token <- redisGet(paste0(ctx$user$login, "_access_token"))
+  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   response <- sni.post.request(ctx, data.json, token)
+  ##To get response similar to github
   res <- .get.git.res(response)
   res  
 }
 
 get.snippet <- function(id, version = NULL, ctx = NULL){
-  require(rredis, quietly= T)
-  redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
-  token <- redisGet(paste0(ctx$user$login, "_access_token"))
+  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
+  ##Whether version is given or not
   if(!is.null(version)) {
     res <- sni.get.request(version, token, ctx)
     res <- .get.git.res(res)
@@ -43,9 +40,8 @@ get.snippet <- function(id, version = NULL, ctx = NULL){
 }
 
 modify.snippet <- function(id, content, ctx = NULL){
-  require(rredis, quietly= T)
-  redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
-  token <- redisGet(paste0(ctx$user$login, "_access_token"))
+  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
+  ##first get all the files of an existing snippet
   snippet <- .get.snippet.res(id, token, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
@@ -76,8 +72,10 @@ modify.snippet <- function(id, content, ctx = NULL){
     }
     data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(snippet.files),' }')
     revision.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(snippet.files),' }')
+    ##creating a snippet which serves the purpose of history version
     revision.response <- sni.post.request(ctx , revision.json, token)
-    redisLPush(id, fromJSON(revision.response)[1])
+    ##kepping a mapping of snippet id with its history versions
+    redis.list( .session$rc , id, fromJSON(revision.response)[1])
     response <- sni.post.request(ctx, data.json, token, id) 
     res <- .get.snippet.res(id, token, ctx)
     res <- .get.git.res(res)
@@ -89,30 +87,28 @@ modify.snippet <- function(id, content, ctx = NULL){
 }
 
 delete.snippet <- function(id, ctx = NULL){
-  token <- redisGet(paste0(ctx$user$login, "access_token"))
+  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   sni.delete.request(id, token, ctx)
 }
 
 fork.snippet <- function(id, ctx = NULL) {
-  require(rredis, quietly= T)
-  redisConnect(host = "localhost", port = 6379, password = NULL,returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
-  token <- redisGet(paste0(ctx$user$login, "_access_token"))
+  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   snippet <- sni.get.request(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
+  ##taking out all the files of existing snippet 
   for(i in 1:length(snippet.list$files)){
       files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
   }
   data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
+  ## creating a snippet copy with all the files 
   response <- sni.post.request(ctx, data.json, token)
   res <- .get.git.res(response)
   res
 }
 
 get.snippet.comments <- function(id, ctx = NULL){
-  library(rredis, quietly= T)
-  redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
-  token <- redisGet(paste0(ctx$user$login, "_access_token"))
+  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   snippet <- sni.get.request(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -120,21 +116,17 @@ get.snippet.comments <- function(id, ctx = NULL){
       files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
   }
   fns <- as.vector(sapply(files, function(o) o$name))
+  ## searching for comments inside files-- comments are also stored as snippet files
   comments <- grep("comment", fns)
   files <- files[comments]
-  #comments.name <- as.vector(sapply(files, function(o) o$name))
-  #for (i in 1:length(comments.name)){
-  #  comments.name[i] <- as.numeric(strsplit(comments.name[i], "-")[[1]][2])
-  #}
-  #redisSet("comments.name", comments.name)
   if(length(files) == 0){
-    res <- redisGet("get_comment_res")
+    res <- redis.get( .session$rc, "get_comment_res")
     res$content <- list()
     res
   } else {
-    comments <- redisGet("comment_res")
+    comments <- redis.get( .session$rc, "comment_res")
     comments.list <- fromJSON(comments)
-    users <- redisGet("users")
+    users <- redis.get( .session$rc, "users")
     index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(snippet)$userId))
     user <- fromJSON(users)$values[[index]]$name
     comments.list[[1]]$user$login <- user
@@ -143,14 +135,14 @@ get.snippet.comments <- function(id, ctx = NULL){
       comments.list[[i]] <- comments.list[[1]]
       comments.list[[i]]$body <- files[[i]]$content
     }
-    res <- redisGet("get_comment_res")
+    res <- redis.get( .session$rc, "get_comment_res")
     res$content <- comments.list
     return(res)
   }
 }
 
 get.snippet.without.comments <- function(id, version = NULL){
-  token <- redisGet("access_token")
+  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   snippet <- sni.get.request(id, token, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
@@ -160,6 +152,7 @@ get.snippet.without.comments <- function(id, version = NULL){
     }
     fns <- as.vector(sapply(files, function(o) o$name))
     comments <- grep("comment", fns)
+    ## removing files which are basically created for comments workaround
     files <- files[-comments]
     snippet.list$files <- files
     res <- .get.git.res(toJSON(snippet.list))
@@ -170,8 +163,8 @@ get.snippet.without.comments <- function(id, version = NULL){
   }
 }
 
-get.snippet.user.comments <- function(id, user) {
-  token <- redisGet("access_token")
+get.snippet.user.comments <- function(id, user, ctx = NULL) {
+  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   snippet <- sni.get.request(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -179,22 +172,25 @@ get.snippet.user.comments <- function(id, user) {
       files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
   }
   fns <- as.vector(sapply(files, function(o) o$name))
+  ## keeping files corresponding to particular user
   comments <- grep(user, fns)
   files <- files[comments]
   return(toJSON(files))
 }
 
 .get.git.res <- function(snippet) {
-  require(rredis, quietly= T)
-  redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
+  ## HACK: this is basically to get similar api response as that of github
   snippet.files <- fromJSON(snippet)$files
   file_names <- as.vector(sapply(snippet.files, function(o) o$name))
   comments <- grep("comment", file_names)
+  ## remove all the comment files
   if(length(comments) !=0 ) {
     snippet.files <- snippet.files[-comments]
     file_names <- file_names[-comments]
   }
-  notebook <- redisGet("notebook_res")
+  ## taking a dummy response as given by github
+  notebook <- redis.get( .session$rc, "notebook_res")
+  ## setting different metadata fields in the github response
   notebook$content$comments <- length(comments)
   cdate <- as.POSIXct(fromJSON(snippet)$createdAt/1000, origin="1970-01-01")
   udate <- as.POSIXct(fromJSON(snippet)$updatedAt/1000, origin="1970-01-01")
@@ -204,7 +200,7 @@ get.snippet.user.comments <- function(id, user) {
   notebook$content$description <- fromJSON(snippet)$name
   notebook$content$user$id <- fromJSON(snippet)$userId
   notebook$content$history[[1]]$user$id <- fromJSON(snippet)$userId
-  users <- redisGet("users")
+  users <- redis.get( .session$rc, "users")
   index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(snippet)$userId))
   user <- fromJSON(users)$values[[index]]$name
   notebook$content$user$login <- user
@@ -212,11 +208,12 @@ get.snippet.user.comments <- function(id, user) {
   for(i in 1:length(snippet.files)){
     notebook$content$files[i] <- notebook$content$files[1]
   }
-  revisions <- redisLRange(fromJSON(snippet)$guid, 0 , -1)
-  if(!is.null(revisions)) {
+  ## to get all the history versions mapped inside redis
+  revisions <- lapply(redis.list.range(.session$rc, fromJSON(snippet)$guid, 0 , -1), rawToChar)
+  if(length(revisions) !=0 ) {
     for(i in 1:length(revisions)) {
       notebook$content$history[[i]] <- notebook$content$history[[1]]
-      notebook$content$history[[i]]$version <- revisions[[i]]$guid
+      notebook$content$history[[i]]$version <- revisions[[i]]
     }
   } else {
     for(i in 1:length(snippet.files)) {
@@ -228,22 +225,16 @@ get.snippet.user.comments <- function(id, user) {
     notebook$content$files[[i]]$filename <- file_names[i]
     notebook$content$files[[i]]$content <- snippet.files[[i]]$content
   }
-  #if(length(notebook$content$history) != length(notebook$content$history)) {
-
   return(notebook)
 }
 
 .get.snippet.res <- function(id, token, ctx) {
-  require(rredis, quietly= T)
-  redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
   res <- sni.get.request(id, token, ctx)
   res
 }
 
 create.snippet.comment <- function(id, content, ctx = NULL) {
-  require(rredis, quietly= T)
-  redisConnect(host = "localhost", port = 6379, password = NULL, returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
-  token <- redisGet(paste0(ctx$user$login, "_access_token"))
+  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   snippet <- .get.snippet.res(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -253,21 +244,21 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
   fns <- as.vector(sapply(files, function(o) o$name)) 
   comment.part <- length(grep("comment", fns))
   len <- length(files)
+  ## HACK: storing comments as new file in snippets
   files[[len+1]] <- list(name=paste0("comment ",(comment.part+1),"-",fromJSON(snippet)$userId), content=fromJSON(content)$body)
   data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(files),' }')
-  #token <- redisGet("access_token")
   res <- sni.post.request(ctx, data.json, token, id)
-  comment_res <- redisGet("post_comment_res")
-  users <- redisGet("users")
+  comment_res <- redis.get( .session$rc, "post_comment_res")
+  users <- redis.get( .session$rc, "users")
   index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(snippet)$userId))
   user <- fromJSON(users)$values[[index]]$name
   comment_res$content$body <- fromJSON(content)$body
   comment_res$content$user$login <- user
   comment_res$content$user$id <- fromJSON(snippet)$userId
-  comment_res
   return(comment_res)
 }
 
+## for POST and PUT request in snippet API
 sni.post.request <- function(ctx, data.json, token, id = NULL) {
   cKey <- ctx$ckey
   cSecret <- PKI.load.private.pem(ctx$rsakey)
@@ -286,9 +277,9 @@ sni.post.request <- function(ctx, data.json, token, id = NULL) {
     curl <- curlSetOpt(.opts=list(postfields=data.json, httpheader=c('Authorization'= auth , 'Content-Type' = 'application/json')), verbose=FALSE, curl=getCurlHandle())  
     sni <- httpPUT(url, curl=curl, style="PUT")
   }
-  
 }
 
+## for GET request in snippet API
 sni.get.request <- function(id , token, ctx) {
   cKey <- ctx$ckey
   cSecret <- PKI.load.private.pem(ctx$rsakey)
@@ -300,6 +291,7 @@ sni.get.request <- function(id , token, ctx) {
   getURL(url,curl=curl)
 }
 
+## for DELETE request in snippet API
 sni.delete.request<- function(id, token, ctx) {
   cKey <- ctx$ckey
   cSecret <- PKI.load.private.pem(ctx$rsakey)
