@@ -5,7 +5,6 @@ require(PKI)
 create.snippet <- function(content, ctx = NULL){
   data <- fromJSON(content)  
   files <- list()
-  redis.set(.session$rc, "ctx", ctx)
   ##Reading all files to be created in snippet
   for(i in 1:length(data$files)){
     files[[i]] <- list(name= names(data$files[i]), content = data$files[[i]]$content)
