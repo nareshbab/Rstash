@@ -2,11 +2,11 @@ require(rjson)
 require(httr)
 require(PKI)
 
-create.snippet <- function(content, ctx = NULL){
+create.snippet <- function(content, ctx = NULL) {
   data <- fromJSON(content)  
   files <- list()
   ##Reading all files to be created in snippet
-  for(i in 1:length(data$files)){
+  for(i in 1:length(data$files)) {
     files[[i]] <- list(name= names(data$files[i]), content = data$files[[i]]$content)
   }
   data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
@@ -17,7 +17,7 @@ create.snippet <- function(content, ctx = NULL){
   res  
 }
 
-get.snippet <- function(id, version = NULL, ctx = NULL){
+get.snippet <- function(id, version = NULL, ctx = NULL) {
   token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   ##Whether version is given or not
   if(!is.null(version)) {
@@ -25,7 +25,7 @@ get.snippet <- function(id, version = NULL, ctx = NULL){
     res <- .get.git.res(res)
     res$content$id <- id
     res
-  }else { 
+  } else { 
     res <- sni.get.request(id, token, ctx)
     if(length(grep("No such snippet", res)) == 0) {
       res <- .get.git.res(res)
@@ -38,22 +38,22 @@ get.snippet <- function(id, version = NULL, ctx = NULL){
   }
 }
 
-modify.snippet <- function(id, content, ctx = NULL){
+modify.snippet <- function(id, content, ctx = NULL) {
   token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   ##first get all the files of an existing snippet
   snippet <- .get.snippet.res(id, token, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
     snippet.files <- list()
-    for(i in 1:length(snippet.list$files)){
+    for(i in 1:length(snippet.list$files)) {
       snippet.files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
     }
     snippet.files.names <- as.vector(sapply(snippet.files, function(o) o$name))
-    if(is.null(fromJSON(content)$description)){
+    if(is.null(fromJSON(content)$description)) {
       content.files <- fromJSON(content)$files
-      for(i in 1:length(content.files)){
-        if (length(grep(names(content.files)[i], snippet.files.names)) !=0 ){
-          if(is.null(content.files[i][[1]]$content)){
+      for(i in 1:length(content.files)) {
+        if (length(grep(names(content.files)[i], snippet.files.names)) !=0 ) {
+          if(is.null(content.files[i][[1]]$content)) {
             index <- grep(names(content.files)[i], snippet.files.names)
             snippet.files <- snippet.files[-index]
             snippet.files.names <- snippet.files.names[-index]
@@ -85,7 +85,7 @@ modify.snippet <- function(id, content, ctx = NULL){
   }  
 }
 
-delete.snippet <- function(id, ctx = NULL){
+delete.snippet <- function(id, ctx = NULL) {
   token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   sni.delete.request(id, token, ctx)
 }
@@ -96,7 +96,7 @@ fork.snippet <- function(id, ctx = NULL) {
   snippet.list <- fromJSON(snippet)
   files <- list()
   ##taking out all the files of existing snippet 
-  for(i in 1:length(snippet.list$files)){
+  for(i in 1:length(snippet.list$files)) {
       files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
   }
   data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
@@ -106,19 +106,19 @@ fork.snippet <- function(id, ctx = NULL) {
   res
 }
 
-get.snippet.comments <- function(id, ctx = NULL){
+get.snippet.comments <- function(id, ctx = NULL) {
   token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   snippet <- sni.get.request(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
-  for(i in 1:length(snippet.list$files)){
+  for(i in 1:length(snippet.list$files)) {
       files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
   }
   fns <- as.vector(sapply(files, function(o) o$name))
   ## searching for comments inside files-- comments are also stored as snippet files
   comments <- grep("comment", fns)
   files <- files[comments]
-  if(length(files) == 0){
+  if(length(files) == 0) {
     res <- redis.get( .session$rc, "get_comment_res")
     res$content <- list()
     res
@@ -140,13 +140,13 @@ get.snippet.comments <- function(id, ctx = NULL){
   }
 }
 
-get.snippet.without.comments <- function(id, version = NULL){
+get.snippet.without.comments <- function(id, version = NULL) {
   token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   snippet <- sni.get.request(id, token, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
     files <- list()
-    for(i in 1:length(snippet.list$files)){
+    for(i in 1:length(snippet.list$files)) {
       files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
     }
     fns <- as.vector(sapply(files, function(o) o$name))
@@ -167,7 +167,7 @@ get.snippet.user.comments <- function(id, user, ctx = NULL) {
   snippet <- sni.get.request(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
-  for(i in 1:length(snippet.list$files)){
+  for(i in 1:length(snippet.list$files)) {
       files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
   }
   fns <- as.vector(sapply(files, function(o) o$name))
@@ -204,7 +204,7 @@ get.snippet.user.comments <- function(id, user, ctx = NULL) {
   user <- fromJSON(users)$values[[index]]$name
   notebook$content$user$login <- user
   notebook$content$history[[1]]$user$login <- user
-  for(i in 1:length(snippet.files)){
+  for(i in 1:length(snippet.files)) {
     notebook$content$files[i] <- notebook$content$files[1]
   }
   ## to get all the history versions mapped inside redis
@@ -220,7 +220,7 @@ get.snippet.user.comments <- function(id, user, ctx = NULL) {
     }
   }
   names(notebook$content$files) <- file_names
-  for(i in 1:length(notebook$content$files)){
+  for(i in 1:length(notebook$content$files)) {
     notebook$content$files[[i]]$filename <- file_names[i]
     notebook$content$files[[i]]$content <- snippet.files[[i]]$content
   }
@@ -237,7 +237,7 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
   snippet <- .get.snippet.res(id, token, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
-  for(i in 1:length(snippet.list$files)){
+  for(i in 1:length(snippet.list$files)) {
     files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
   }
   fns <- as.vector(sapply(files, function(o) o$name)) 
@@ -261,7 +261,7 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
 sni.post.request <- function(ctx, data.json, token, id = NULL) {
   cKey <- ctx$ckey
   cSecret <- PKI.load.private.pem(ctx$rsakey)
-  if(is.null(id)){
+  if(is.null(id)) {
     url <- ctx$stash.api.url
     params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="POST", signMethod='RSA', handshakeComplete=handshakeComplete)
     params <- lapply(params, encodeURI.sni)
