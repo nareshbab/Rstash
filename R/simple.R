@@ -208,7 +208,7 @@ get.snippet.user.comments <- function(id, user, ctx = NULL) {
     notebook$content$files[i] <- notebook$content$files[1]
   }
   ## to get all the history versions mapped inside redis
-  revisions <- lapply(redis.list.range(.session$rc, fromJSON(snippet)$guid, 0 , -1), rawToChar)
+  revisions <- redis.list.range(.session$rc, fromJSON(snippet)$guid, 0 , -1)
   if(length(revisions) !=0 ) {
     for(i in 1:length(revisions)) {
       notebook$content$history[[i]] <- notebook$content$history[[1]]
@@ -259,17 +259,17 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
 
 ## for POST and PUT request in snippet API
 sni.post.request <- function(ctx, data.json, token, id = NULL) {
-  cKey <- ctx$ckey
-  cSecret <- PKI.load.private.pem(ctx$rsakey)
+  cKey <- ctx$client_id
+  cSecret <- PKI.load.private.pem(ctx$client_secret)
   if(is.null(id)) {
-    url <- ctx$stash.api.url
+    url <- ctx$api_url
     params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="POST", signMethod='RSA', handshakeComplete=handshakeComplete)
     params <- lapply(params, encodeURI.sni)
     auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "") 
     curl <- curlSetOpt(.opts=list(postfields=data.json, httpheader=c('Authorization'= auth , 'Content-Type' = 'application/json')), verbose=FALSE, curl=getCurlHandle())  
     sni <- postForm(url, curl=curl, style="POST")
   } else {
-    url <- paste0(ctx$stash.api.url ,"/",id)
+    url <- paste0(ctx$api_url ,"/",id)
     params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="PUT", signMethod='RSA', handshakeComplete=handshakeComplete)
     params <- lapply(params, encodeURI.sni)
     auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "") 
@@ -280,9 +280,9 @@ sni.post.request <- function(ctx, data.json, token, id = NULL) {
 
 ## for GET request in snippet API
 sni.get.request <- function(id , token, ctx) {
-  cKey <- ctx$ckey
-  cSecret <- PKI.load.private.pem(ctx$rsakey)
-  url <- paste0(ctx$stash.api.url,"/",id)
+  cKey <- ctx$client_id
+  cSecret <- PKI.load.private.pem(ctx$client_secret)
+  url <- paste0(ctx$api_url,"/",id)
   params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="GET", signMethod='RSA', handshakeComplete=handshakeComplete)
   params <- lapply(params, encodeURI.sni)
   auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "")
@@ -292,12 +292,31 @@ sni.get.request <- function(id , token, ctx) {
 
 ## for DELETE request in snippet API
 sni.delete.request<- function(id, token, ctx) {
-  cKey <- ctx$ckey
-  cSecret <- PKI.load.private.pem(ctx$rsakey)
-  url <- paste0(ctx$stash.api.url,"/",id)
+  cKey <- ctx$client_id
+  cSecret <- PKI.load.private.pem(ctx$client_secret)
+  url <- paste0(ctx$api_url,"/",id)
   params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="DELETE", signMethod='RSA', handshakeComplete=handshakeComplete)
   params <- lapply(params, encodeURI.sni)
   auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "")
   curl <- curlSetOpt(.opts=list(httpheader=c('Authorization'= auth , 'Content-Type' = 'application/json')), verbose=FALSE, curl=getCurlHandle())
   httpDELETE(url,curl=curl)
+}
+
+create.snippet.context <- function(api_url , client_id , client_secret , access_token = NULL, personal_token = NULL, max_etags = 10000, verbose = FALSE) {
+  ctx <- list(api_url = api_url, client_id= client_id, client_secret= client_secret, token= access_token)
+  url <- paste0("http://",strsplit(api_url, "/")[[1]][3], "/rest/api/1.0/users")
+  vals <- redis.get( .session$rc, "Key")
+  cSecret <- PKI.load.private.pem(client_secret)
+  users <- oauthGET.sni(url, consumerKey= client_id, consumerSecret = cSecret,
+   oauthKey = strsplit(access_token, "//")[[1]][1] , oauthSecret= strsplit(access_token, "//")[[1]][2], signMethod='RSA',
+   curl=getCurlHandle())
+  redis.set(.session$rc, "users", users)
+  data.json <- paste0('{ "name" : "sample","description":"sample", "isVisible": true,"isPublic": true ,"files" : [{ "name" : "scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
+  token <- paste0("oauth_token=",strsplit(access_token, "//")[[1]][1],"&oauth_token_secret=",strsplit(access_token, "//")[[1]][2])
+  response <- sni.post.request(ctx , data.json, token)
+  index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(response)$userId))
+  user <- fromJSON(users)$values[[index]]$name
+  redis.set( .session$rc, paste0(user,"_access_token"), token)
+  ctx$user$login <- user
+  ctx
 }
