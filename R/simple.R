@@ -10,23 +10,21 @@ create.snippet <- function(content, ctx = NULL) {
     files[[i]] <- list(name= names(data$files[i]), content = data$files[[i]]$content)
   }
   data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
-  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
-  response <- sni.post.request(ctx, data.json, token)
+  response <- sni.post.request(ctx, data.json)
   ##To get response similar to github
   res <- .get.git.res(response)
   res  
 }
 
 get.snippet <- function(id, version = NULL, ctx = NULL) {
-  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   ##Whether version is given or not
   if(!is.null(version)) {
-    res <- sni.get.request(version, token, ctx)
+    res <- sni.get.request(version, ctx)
     res <- .get.git.res(res)
     res$content$id <- id
     res
   } else { 
-    res <- sni.get.request(id, token, ctx)
+    res <- sni.get.request(id, ctx)
     if(length(grep("No such snippet", res)) == 0) {
       res <- .get.git.res(res)
       res
@@ -39,9 +37,8 @@ get.snippet <- function(id, version = NULL, ctx = NULL) {
 }
 
 modify.snippet <- function(id, content, ctx = NULL) {
-  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
   ##first get all the files of an existing snippet
-  snippet <- .get.snippet.res(id, token, ctx)
+  snippet <- .get.snippet.res(id, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
     snippet.files <- list()
@@ -72,11 +69,11 @@ modify.snippet <- function(id, content, ctx = NULL) {
     data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(snippet.files),' }')
     revision.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(snippet.files),' }')
     ##creating a snippet which serves the purpose of history version
-    revision.response <- sni.post.request(ctx , revision.json, token)
+    revision.response <- sni.post.request(ctx , revision.json)
     ##kepping a mapping of snippet id with its history versions
     redis.list( .session$rc , id, fromJSON(revision.response)[1])
-    response <- sni.post.request(ctx, data.json, token, id) 
-    res <- .get.snippet.res(id, token, ctx)
+    response <- sni.post.request(ctx, data.json, id) 
+    res <- .get.snippet.res(id, ctx)
     res <- .get.git.res(res)
     res
   } else {
@@ -86,13 +83,11 @@ modify.snippet <- function(id, content, ctx = NULL) {
 }
 
 delete.snippet <- function(id, ctx = NULL) {
-  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
-  sni.delete.request(id, token, ctx)
+  sni.delete.request(id, ctx)
 }
 
 fork.snippet <- function(id, ctx = NULL) {
-  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
-  snippet <- sni.get.request(id, token, ctx)
+  snippet <- sni.get.request(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
   ##taking out all the files of existing snippet 
@@ -101,14 +96,13 @@ fork.snippet <- function(id, ctx = NULL) {
   }
   data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
   ## creating a snippet copy with all the files 
-  response <- sni.post.request(ctx, data.json, token)
+  response <- sni.post.request(ctx, data.json)
   res <- .get.git.res(response)
   res
 }
 
 get.snippet.comments <- function(id, ctx = NULL) {
-  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
-  snippet <- sni.get.request(id, token, ctx)
+  snippet <- sni.get.request(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
   for(i in 1:length(snippet.list$files)) {
@@ -141,8 +135,7 @@ get.snippet.comments <- function(id, ctx = NULL) {
 }
 
 get.snippet.without.comments <- function(id, version = NULL) {
-  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
-  snippet <- sni.get.request(id, token, ctx)
+  snippet <- sni.get.request(id, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
     files <- list()
@@ -163,8 +156,7 @@ get.snippet.without.comments <- function(id, version = NULL) {
 }
 
 get.snippet.user.comments <- function(id, user, ctx = NULL) {
-  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
-  snippet <- sni.get.request(id, token, ctx)
+  snippet <- sni.get.request(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
   for(i in 1:length(snippet.list$files)) {
@@ -222,19 +214,23 @@ get.snippet.user.comments <- function(id, user, ctx = NULL) {
   names(notebook$content$files) <- file_names
   for(i in 1:length(notebook$content$files)) {
     notebook$content$files[[i]]$filename <- file_names[i]
+    extension <- tail(strsplit(file_names[i],'\\.')[[1]], n=1)
+    switch(extension,
+			R = {notebook$content$files[[i]]$language <- "R"},
+			md = {notebook$content$files[[i]]$language <- "Markdown"},
+			py = {notebook$content$files[[i]]$language <- "Python"})
     notebook$content$files[[i]]$content <- snippet.files[[i]]$content
   }
   return(notebook)
 }
 
-.get.snippet.res <- function(id, token, ctx) {
-  res <- sni.get.request(id, token, ctx)
+.get.snippet.res <- function(id, ctx) {
+  res <- sni.get.request(id, ctx)
   res
 }
 
 create.snippet.comment <- function(id, content, ctx = NULL) {
-  token <- redis.get( .session$rc, paste0(ctx$user$login, "_access_token"))
-  snippet <- .get.snippet.res(id, token, ctx)
+  snippet <- .get.snippet.res(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
   for(i in 1:length(snippet.list$files)) {
@@ -246,7 +242,7 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
   ## HACK: storing comments as new file in snippets
   files[[len+1]] <- list(name=paste0("comment ",(comment.part+1),"-",fromJSON(snippet)$userId), content=fromJSON(content)$body)
   data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(files),' }')
-  res <- sni.post.request(ctx, data.json, token, id)
+  res <- sni.post.request(ctx, data.json, id)
   comment_res <- redis.get( .session$rc, "post_comment_res")
   users <- redis.get( .session$rc, "users")
   index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(snippet)$userId))
@@ -258,19 +254,19 @@ create.snippet.comment <- function(id, content, ctx = NULL) {
 }
 
 ## for POST and PUT request in snippet API
-sni.post.request <- function(ctx, data.json, token, id = NULL) {
+sni.post.request <- function(ctx, data.json, id = NULL) {
   cKey <- ctx$client_id
   cSecret <- PKI.load.private.pem(ctx$client_secret)
   if(is.null(id)) {
     url <- ctx$api_url
-    params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="POST", signMethod='RSA', handshakeComplete=handshakeComplete)
+    params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(ctx$token, "//")[[1]][1] , oauthSecret= strsplit(ctx$token, "//")[[1]][2], httpMethod="POST", signMethod='RSA', handshakeComplete=handshakeComplete)
     params <- lapply(params, encodeURI.sni)
     auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "") 
     curl <- curlSetOpt(.opts=list(postfields=data.json, httpheader=c('Authorization'= auth , 'Content-Type' = 'application/json')), verbose=FALSE, curl=getCurlHandle())  
     sni <- postForm(url, curl=curl, style="POST")
   } else {
     url <- paste0(ctx$api_url ,"/",id)
-    params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="PUT", signMethod='RSA', handshakeComplete=handshakeComplete)
+    params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(ctx$token, "//")[[1]][1] , oauthSecret= strsplit(ctx$token, "//")[[1]][2], httpMethod="PUT", signMethod='RSA', handshakeComplete=handshakeComplete)
     params <- lapply(params, encodeURI.sni)
     auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "") 
     curl <- curlSetOpt(.opts=list(postfields=data.json, httpheader=c('Authorization'= auth , 'Content-Type' = 'application/json')), verbose=FALSE, curl=getCurlHandle())  
@@ -279,11 +275,11 @@ sni.post.request <- function(ctx, data.json, token, id = NULL) {
 }
 
 ## for GET request in snippet API
-sni.get.request <- function(id , token, ctx) {
+sni.get.request <- function(id , ctx) {
   cKey <- ctx$client_id
   cSecret <- PKI.load.private.pem(ctx$client_secret)
   url <- paste0(ctx$api_url,"/",id)
-  params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="GET", signMethod='RSA', handshakeComplete=handshakeComplete)
+  params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(ctx$token, "//")[[1]][1] , oauthSecret= strsplit(ctx$token, "//")[[1]][2], httpMethod="GET", signMethod='RSA', handshakeComplete=handshakeComplete)
   params <- lapply(params, encodeURI.sni)
   auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "")
   curl <- curlSetOpt(.opts=list(httpheader=c('Authorization'= auth , 'Content-Type' = 'application/json')), verbose=FALSE, curl=getCurlHandle())
@@ -291,11 +287,11 @@ sni.get.request <- function(id , token, ctx) {
 }
 
 ## for DELETE request in snippet API
-sni.delete.request<- function(id, token, ctx) {
+sni.delete.request<- function(id, ctx) {
   cKey <- ctx$client_id
   cSecret <- PKI.load.private.pem(ctx$client_secret)
   url <- paste0(ctx$api_url,"/",id)
-  params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(strsplit(token, "&")[[1]][1], "=")[[1]][2] , oauthSecret= strsplit(strsplit(token, "&")[[1]][2], "=")[[1]][2], httpMethod="DELETE", signMethod='RSA', handshakeComplete=handshakeComplete)
+  params <- signRequest.sni(url, params=character(), consumerKey = cKey, consumerSecret = cSecret, oauthKey= strsplit(ctx$token, "//")[[1]][1] , oauthSecret= strsplit(ctx$token, "//")[[1]][2], httpMethod="DELETE", signMethod='RSA', handshakeComplete=handshakeComplete)
   params <- lapply(params, encodeURI.sni)
   auth = paste0("OAuth ", paste0(names(params),"=", '"',params, '"', collapse=",") , "")
   curl <- curlSetOpt(.opts=list(httpheader=c('Authorization'= auth , 'Content-Type' = 'application/json')), verbose=FALSE, curl=getCurlHandle())
@@ -312,11 +308,9 @@ create.snippet.context <- function(api_url , client_id , client_secret , access_
    curl=getCurlHandle())
   redis.set(.session$rc, "users", users)
   data.json <- paste0('{ "name" : "sample","description":"sample", "isVisible": true,"isPublic": true ,"files" : [{ "name" : "scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
-  token <- paste0("oauth_token=",strsplit(access_token, "//")[[1]][1],"&oauth_token_secret=",strsplit(access_token, "//")[[1]][2])
-  response <- sni.post.request(ctx , data.json, token)
+  response <- sni.post.request(ctx , data.json)
   index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(response)$userId))
   user <- fromJSON(users)$values[[index]]$name
-  redis.set( .session$rc, paste0(user,"_access_token"), token)
   ctx$user$login <- user
   ctx
 }
