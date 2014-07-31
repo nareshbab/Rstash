@@ -309,6 +309,7 @@ create.snippet.context <- function(api_url , client_id , client_secret , access_
   redis.set(.session$rc, "users", users)
   data.json <- paste0('{ "name" : "sample","description":"sample", "isVisible": true,"isPublic": true ,"files" : [{ "name" : "scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
   response <- sni.post.request(ctx , data.json)
+  sni.delete.request(fromJSON(response)$guid, ctx)
   index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(response)$userId))
   user <- fromJSON(users)$values[[index]]$name
   ctx$user$login <- user
