@@ -2,7 +2,7 @@ require(rjson)
 require(httr)
 require(PKI)
 
-create.snippet <- function(content, ctx = NULL) {
+create.gist <- function(content, ctx = NULL) {
   data <- fromJSON(content)  
   files <- list()
   ##Reading all files to be created in snippet
@@ -16,7 +16,7 @@ create.snippet <- function(content, ctx = NULL) {
   res  
 }
 
-get.snippet <- function(id, version = NULL, ctx = NULL) {
+get.gist <- function(id, version = NULL, ctx = NULL) {
   ##Whether version is given or not
   if(!is.null(version)) {
     res <- sni.get.request(version, ctx)
@@ -36,7 +36,7 @@ get.snippet <- function(id, version = NULL, ctx = NULL) {
   }
 }
 
-modify.snippet <- function(id, content, ctx = NULL) {
+modify.gist <- function(id, content, ctx = NULL) {
   ##first get all the files of an existing snippet
   snippet <- .get.snippet.res(id, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
@@ -82,11 +82,11 @@ modify.snippet <- function(id, content, ctx = NULL) {
   }  
 }
 
-delete.snippet <- function(id, ctx = NULL) {
+delete.gist <- function(id, ctx = NULL) {
   sni.delete.request(id, ctx)
 }
 
-fork.snippet <- function(id, ctx = NULL) {
+fork.gist <- function(id, ctx = NULL) {
   snippet <- sni.get.request(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -101,7 +101,7 @@ fork.snippet <- function(id, ctx = NULL) {
   res
 }
 
-get.snippet.comments <- function(id, ctx = NULL) {
+get.gist.comments <- function(id, ctx = NULL) {
   snippet <- sni.get.request(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -134,7 +134,7 @@ get.snippet.comments <- function(id, ctx = NULL) {
   }
 }
 
-get.snippet.without.comments <- function(id, version = NULL) {
+get.gist.without.comments <- function(id, version = NULL) {
   snippet <- sni.get.request(id, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
@@ -155,7 +155,7 @@ get.snippet.without.comments <- function(id, version = NULL) {
   }
 }
 
-get.snippet.user.comments <- function(id, user, ctx = NULL) {
+get.gist.user.comments <- function(id, user, ctx = NULL) {
   snippet <- sni.get.request(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -229,7 +229,7 @@ get.snippet.user.comments <- function(id, user, ctx = NULL) {
   res
 }
 
-create.snippet.comment <- function(id, content, ctx = NULL) {
+create.gist.comment <- function(id, content, ctx = NULL) {
   snippet <- .get.snippet.res(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -298,7 +298,7 @@ sni.delete.request<- function(id, ctx) {
   httpDELETE(url,curl=curl)
 }
 
-create.snippet.context <- function(api_url , client_id , client_secret , access_token = NULL, personal_token = NULL, max_etags = 10000, verbose = FALSE) {
+create.github.context <- function(api_url , client_id , client_secret , access_token = NULL, personal_token = NULL, max_etags = 10000, verbose = FALSE) {
   ctx <- list(api_url = api_url, client_id= client_id, client_secret= client_secret, token= access_token)
   url <- paste0("http://",strsplit(api_url, "/")[[1]][3], "/rest/api/1.0/users")
   vals <- redis.get( .session$rc, "Key")

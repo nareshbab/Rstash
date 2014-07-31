@@ -1,5 +1,4 @@
 require(RCurl)
-require(httr)  
 genNonce.sni <- function(len = 15L + sample(1:16, 1L)) {
   ## Get a random sequence of characters.
   ## Nonce - number used only once.
