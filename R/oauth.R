@@ -1,4 +1,5 @@
 require(PKI)
+require(RCurl)
 .token <- new.env(parent=emptyenv())
 
 authenticate.sni <- function(consumerKey, rsa_key, reqURL) {
@@ -21,6 +22,34 @@ authenticate.sni <- function(consumerKey, rsa_key, reqURL) {
   .token$variables <- vals
   return(vals)
 }
+
+oauthGET.sni <- function(url, consumerKey, consumerSecret,
+                     oauthKey, oauthSecret, params=character(), customHeader = NULL,
+                     curl = getCurlHandle(), signMethod='RSA', ..., .opts = list(...)) {
+  if(is.null(curl))
+    curl <- getCurlHandle()
+  
+  params <- signRequest.sni(url, params, consumerKey, consumerSecret,
+                        oauthKey=oauthKey, oauthSecret=oauthSecret,
+                        httpMethod="GET", signMethod='RSA')
+  
+  getForm(url, .params = params, curl = curl, .opts = c(httpget = TRUE,  list(...)))
+}
+
+oauthPOST.sni <- function(url, consumerKey, consumerSecret,
+						oauthKey, oauthSecret, params=character(), customHeader = NULL,
+						curl = getCurlHandle(), signMethod='RSA', handshakeComplete=TRUE,...) {
+  if(is.null(curl))
+    curl <- getCurlHandle()
+  params <- signRequest.sni(url, params, consumerKey, consumerSecret,
+						oauthKey=oauthKey, oauthSecret=oauthSecret,
+						httpMethod="POST", signMethod='RSA',
+						handshakeComplete=handshakeComplete)
+  opts <- list(...)
+  ## post ,specify the method
+  postForm(url, .params = params, curl = curl,.opts = opts, style = "POST")
+}
+  
 
 POST <- function(access_url, config, body) {
   cSecret <- PKI.load.private.pem(body$client_secret)
