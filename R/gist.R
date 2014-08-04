@@ -8,10 +8,17 @@ create.gist <- function(content, ctx = .session$ctx) {
   for(i in 1:length(data$files)) {
     files[[i]] <- list(name= names(data$files[i]), content = data$files[[i]]$content)
   }
+  index.scratch <- grep("scratch.R", files)
+  files[[index.scratch]]$content <- toJSON(list())
+  revision.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
+  response <- sni.post.request(ctx, revision.json)
+  history.version <- list()
+  history.version[[1]] <- fromJSON(response)$guid
+  files[[index.scratch]]$content <- toJSON(history.version)
   data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
-  response <- sni.post.request(ctx, data.json)
+  res <- sni.post.request(ctx, data.json)
   ##To get response similar to github
-  res <- .get.git.res(response)
+  res <- .get.git.res(res)
   res  
 }
 
@@ -65,12 +72,15 @@ modify.gist <- function(id, content, ctx = .session$ctx) {
     } else {
       snippet.list$name <- fromJSON(content)$description
     }
-    data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(snippet.files),' }')
     revision.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(snippet.files),' }')
     ##creating a snippet which serves the purpose of history version
     revision.response <- sni.post.request(ctx , revision.json)
+    index.scratch <- grep("scratch.R", snippet.files)
+    history.revision <- fromJSON(snippet.files[[index.scratch]]$content)
+    history.revision[[length(history.revision) + 1 ]] <- fromJSON(revision.response)$guid
+    snippet.files[[index.scratch]]$content <- toJSON(history.revision)
+    data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(snippet.files),' }')
     ##kepping a mapping of snippet id with its history versions
-    redis.list( .session$rc , id, fromJSON(revision.response)[1])
     response <- sni.post.request(ctx, data.json, id) 
     res <- .get.snippet.res(id, ctx)
     res <- .get.git.res(res)
@@ -199,11 +209,14 @@ get.gist.user.comments <- function(id, user, ctx = .session$ctx) {
     notebook$content$files[i] <- notebook$content$files[1]
   }
   ## to get all the history versions mapped inside redis
+  redis.set(.session$rc, "snippet.files", toJSON(snippet.files))
+  index.scratch <- grep("scratch.R", snippet.files)
+  history.revision <- fromJSON(snippet.files[[index.scratch]]$content)
   revisions <- redis.list.range(.session$rc, fromJSON(snippet)$guid, 0 , -1)
-  if(length(revisions) !=0 ) {
-    for(i in 1:length(revisions)) {
+  if(length(history.revision) !=0 ) {
+    for(i in 1:length(history.revision)) {
       notebook$content$history[[i]] <- notebook$content$history[[1]]
-      notebook$content$history[[i]]$version <- revisions[[i]]
+      notebook$content$history[[i]]$version <- history.revision[[i]]
     }
   } else {
     for(i in 1:length(snippet.files)) {
