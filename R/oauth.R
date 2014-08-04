@@ -56,10 +56,6 @@ POST <- function(access_url, config, body) {
   resp <- oauthPOST.sni(accessURL, consumerKey = body$client_id, consumerSecret = cSecret,
     oauthKey = .token$variables[[1]], oauthSecret = .token$variables[[2]], signMethod=signMethod,
     curl=getCurlHandle(), params=params, handshakeComplete=handshakeComplete)
-  library(rredis)
-  redisConnect(host = "localhost", port = 6379, password = NULL,
-             returnRef = FALSE, nodelay=FALSE, timeout=2678399L) 
-  redisSet("resp", resp)
   result <- list(access_token=paste0(strsplit(strsplit(resp, "&")[[1]][1], "=")[[1]][2],"//",strsplit(strsplit(resp, "&")[[1]][2], "=")[[1]][2]),expires_in=strsplit(strsplit(resp, "&")[[1]][3], "=")[[1]][2], session_handle=strsplit(strsplit(resp, "&")[[1]][4], "=")[[1]][2], authorization_expires_in=strsplit(strsplit(resp, "&")[[1]][5], "=")[[1]][2])
   rjson::toJSON(result)
 }
