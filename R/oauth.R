@@ -1,9 +1,7 @@
-require(PKI)
-require(RCurl)
 .token <- new.env(parent=emptyenv())
 
 authenticate.sni <- function(consumerKey, rsa_key, reqURL) {
-  cSecret <- key <- PKI.load.private.pem(rsa_key)
+  cSecret <- PKI::PKI.load.private.pem(rsa_key)
   cKey <- consumerKey
   resp <- oauthPOST.sni(url = reqURL,
 						consumerKey = cKey,
@@ -33,7 +31,7 @@ oauthGET.sni <- function(url, consumerKey, consumerSecret,
                         oauthKey=oauthKey, oauthSecret=oauthSecret,
                         httpMethod="GET", signMethod='RSA')
   
-  getForm(url, .params = params, curl = curl, .opts = c(httpget = TRUE,  list(...)))
+  RCurl::getForm(url, .params = params, curl = curl, .opts = c(httpget = TRUE,  list(...)))
 }
 
 oauthPOST.sni <- function(url, consumerKey, consumerSecret,
@@ -47,19 +45,21 @@ oauthPOST.sni <- function(url, consumerKey, consumerSecret,
 						handshakeComplete=handshakeComplete)
   opts <- list(...)
   ## post ,specify the method
-  postForm(url, .params = params, curl = curl,.opts = opts, style = "POST")
+  RCurl::postForm(url, .params = params, curl = curl,.opts = opts, style = "POST")
 }
   
 
 POST <- function(access_url, config, body) {
-  cSecret <- PKI.load.private.pem(body$client_secret)
-  url.split <- strsplit(access_url, "/")[[1]][-6]
-  url.split[7] <- "access-token"
-  accessURL <- paste(url.split, collapse="/")
+  cSecret <- PKI::PKI.load.private.pem(body$client_secret)
+  accessURL <- paste0(strsplit(access_url, "/")[[1]][1], '//', strsplit(access_url, "/")[[1]][3], "/plugins/servlet/oauth/access-token")
   params <- c(oauth_verifier=.token$variables[[1]])
   resp <- oauthPOST.sni(accessURL, consumerKey = body$client_id, consumerSecret = cSecret,
     oauthKey = .token$variables[[1]], oauthSecret = .token$variables[[2]], signMethod=signMethod,
     curl=getCurlHandle(), params=params, handshakeComplete=handshakeComplete)
+  library(rredis)
+  redisConnect(host = "localhost", port = 6379, password = NULL,
+             returnRef = FALSE, nodelay=FALSE, timeout=2678399L) 
+  redisSet("resp", resp)
   result <- list(access_token=paste0(strsplit(strsplit(resp, "&")[[1]][1], "=")[[1]][2],"//",strsplit(strsplit(resp, "&")[[1]][2], "=")[[1]][2]),expires_in=strsplit(strsplit(resp, "&")[[1]][3], "=")[[1]][2], session_handle=strsplit(strsplit(resp, "&")[[1]][4], "=")[[1]][2], authorization_expires_in=strsplit(strsplit(resp, "&")[[1]][5], "=")[[1]][2])
   rjson::toJSON(result)
 }

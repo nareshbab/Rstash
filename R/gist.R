@@ -1,7 +1,7 @@
 require(rjson)
 require(rediscc)
 
-create.gist <- function(content, ctx = NULL) {
+create.gist <- function(content, ctx = .session$ctx) {
   data <- fromJSON(content)  
   files <- list()
   ##Reading all files to be created in snippet
@@ -15,7 +15,7 @@ create.gist <- function(content, ctx = NULL) {
   res  
 }
 
-get.gist <- function(id, version = NULL, ctx = NULL) {
+get.gist <- function(id, version = NULL, ctx = .session$ctx) {
   ##Whether version is given or not
   if(!is.null(version)) {
     res <- sni.get.request(version, ctx)
@@ -35,7 +35,7 @@ get.gist <- function(id, version = NULL, ctx = NULL) {
   }
 }
 
-modify.gist <- function(id, content, ctx = NULL) {
+modify.gist <- function(id, content, ctx = .session$ctx) {
   ##first get all the files of an existing snippet
   snippet <- .get.snippet.res(id, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
@@ -81,11 +81,11 @@ modify.gist <- function(id, content, ctx = NULL) {
   }  
 }
 
-delete.gist <- function(id, ctx = NULL) {
+delete.gist <- function(id, ctx = .session$ctx) {
   sni.delete.request(id, ctx)
 }
 
-fork.gist <- function(id, ctx = NULL) {
+fork.gist <- function(id, ctx = .session$ctx) {
   snippet <- sni.get.request(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -100,7 +100,7 @@ fork.gist <- function(id, ctx = NULL) {
   res
 }
 
-get.gist.comments <- function(id, ctx = NULL) {
+get.gist.comments <- function(id, ctx = .session$ctx) {
   snippet <- sni.get.request(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -133,7 +133,7 @@ get.gist.comments <- function(id, ctx = NULL) {
   }
 }
 
-get.gist.without.comments <- function(id, version = NULL) {
+get.gist.without.comments <- function(id, version = .session$ctx) {
   snippet <- sni.get.request(id, ctx)
   if(length(grep("No such snippet", snippet)) == 0) {
     snippet.list <- fromJSON(snippet)
@@ -154,7 +154,7 @@ get.gist.without.comments <- function(id, version = NULL) {
   }
 }
 
-get.gist.user.comments <- function(id, user, ctx = NULL) {
+get.gist.user.comments <- function(id, user, ctx = .session$ctx) {
   snippet <- sni.get.request(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -223,12 +223,12 @@ get.gist.user.comments <- function(id, user, ctx = NULL) {
   return(notebook)
 }
 
-.get.snippet.res <- function(id, ctx) {
+.get.snippet.res <- function(id, ctx = .session$ctx) {
   res <- sni.get.request(id, ctx)
   res
 }
 
-create.gist.comment <- function(id, content, ctx = NULL) {
+create.gist.comment <- function(id, content, ctx = .session$ctx) {
   snippet <- .get.snippet.res(id, ctx)
   snippet.list <- fromJSON(snippet)
   files <- list()
@@ -267,5 +267,6 @@ create.github.context <- function(api_url , client_id , client_secret , access_t
   index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(response)$userId))
   user <- fromJSON(users)$values[[index]]$name
   ctx$user$login <- user
+  .session$ctx <- ctx
   ctx
 }
