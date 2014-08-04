@@ -119,12 +119,12 @@ get.gist.comments <- function(id, ctx = .session$ctx) {
     comments <- redis.get( .session$rc, "comment_res")
     comments.list <- fromJSON(comments)
     users <- redis.get( .session$rc, "users")
-    index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(snippet)$userId))
-    user <- fromJSON(users)$values[[index]]$name
-    comments.list[[1]]$user$login <- user
-    comments.list[[1]]$user$id <- fromJSON(snippet)$userId
     for(i in 1:length(files)){
       comments.list[[i]] <- comments.list[[1]]
+      index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == as.integer(strsplit(files[[i]]$name, "-")[[1]][2])))
+      user <- fromJSON(users)$values[[index]]$name
+      comments.list[[i]]$user$login <- user
+      comments.list[[i]]$user$id <- as.integer(strsplit(files[[i]]$name, "-")[[1]][2])
       comments.list[[i]]$body <- files[[i]]$content
     }
     res <- redis.get( .session$rc, "get_comment_res")
