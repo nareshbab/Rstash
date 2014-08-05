@@ -8,13 +8,13 @@ create.gist <- function(content, ctx = .session$ctx) {
   for(i in 1:length(data$files)) {
     files[[i]] <- list(name= names(data$files[i]), content = data$files[[i]]$content)
   }
-  index.scratch <- grep("scratch.R", files)
-  files[[index.scratch]]$content <- toJSON(list())
+  files[[length(files)+1]] <- list(name= ".versions", content=toJSON(list())) 
+  index.versions <- grep(".versions", files)
   revision.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
   response <- sni.post.request(ctx, revision.json)
   history.version <- list()
   history.version[[1]] <- fromJSON(response)$guid
-  files[[index.scratch]]$content <- toJSON(history.version)
+  files[[index.versions]]$content <- toJSON(history.version)
   data.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
   res <- sni.post.request(ctx, data.json)
   ##To get response similar to github
@@ -75,7 +75,7 @@ modify.gist <- function(id, content, ctx = .session$ctx) {
     revision.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(snippet.files),' }')
     ##creating a snippet which serves the purpose of history version
     revision.response <- sni.post.request(ctx , revision.json)
-    index.scratch <- grep("scratch.R", snippet.files)
+    index.scratch <- grep(".versions", snippet.files)
     history.revision <- fromJSON(snippet.files[[index.scratch]]$content)
     history.revision[[length(history.revision) + 1 ]] <- fromJSON(revision.response)$guid
     snippet.files[[index.scratch]]$content <- toJSON(history.revision)
@@ -111,31 +111,21 @@ fork.gist <- function(id, ctx = .session$ctx) {
 }
 
 get.gist.comments <- function(id, ctx = .session$ctx) {
-  snippet <- sni.get.request(id, ctx)
-  snippet.list <- fromJSON(snippet)
-  files <- list()
-  for(i in 1:length(snippet.list$files)) {
-      files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
-  }
-  fns <- as.vector(sapply(files, function(o) o$name))
-  ## searching for comments inside files-- comments are also stored as snippet files
-  comments <- grep("comment", fns)
-  files <- files[comments]
-  if(length(files) == 0) {
+  comments <- rev(redis.list.range(.session$rc, id, 0, -1))
+  if(length(comments) == 0) {
     res <- redis.get( .session$rc, "get_comment_res")
     res$content <- list()
     res
   } else {
-    comments <- redis.get( .session$rc, "comment_res")
-    comments.list <- fromJSON(comments)
+    comments.res <- redis.get( .session$rc, "comment_res")
+    comments.list <- fromJSON(comments.res)
     users <- redis.get( .session$rc, "users")
-    for(i in 1:length(files)){
+    for(i in 1:length(comments)){
       comments.list[[i]] <- comments.list[[1]]
-      index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == as.integer(strsplit(files[[i]]$name, "-")[[1]][2])))
-      user <- fromJSON(users)$values[[index]]$name
-      comments.list[[i]]$user$login <- user
-      comments.list[[i]]$user$id <- as.integer(strsplit(files[[i]]$name, "-")[[1]][2])
-      comments.list[[i]]$body <- files[[i]]$content
+      index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$name == fromJSON(comments[[i]])$user))
+      comments.list[[i]]$user$login <- fromJSON(users)$values[[index]]$name
+      comments.list[[i]]$user$id <- fromJSON(users)$values[[index]]$id
+      comments.list[[i]]$body <- fromJSON(comments[[i]])$comment
     }
     res <- redis.get( .session$rc, "get_comment_res")
     res$content <- comments.list
@@ -143,39 +133,11 @@ get.gist.comments <- function(id, ctx = .session$ctx) {
   }
 }
 
-get.gist.without.comments <- function(id, version = .session$ctx) {
-  snippet <- sni.get.request(id, ctx)
-  if(length(grep("No such snippet", snippet)) == 0) {
-    snippet.list <- fromJSON(snippet)
-    files <- list()
-    for(i in 1:length(snippet.list$files)) {
-      files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
-    }
-    fns <- as.vector(sapply(files, function(o) o$name))
-    comments <- grep("comment", fns)
-    ## removing files which are basically created for comments workaround
-    files <- files[-comments]
-    snippet.list$files <- files
-    res <- .get.git.res(toJSON(snippet.list))
-    res
-  } else {
-    res <- list(ok=FALSE)
-    res
-  }
-}
-
 get.gist.user.comments <- function(id, user, ctx = .session$ctx) {
-  snippet <- sni.get.request(id, ctx)
-  snippet.list <- fromJSON(snippet)
-  files <- list()
-  for(i in 1:length(snippet.list$files)) {
-      files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
-  }
-  fns <- as.vector(sapply(files, function(o) o$name))
+  comments <- rev(redis.list.range(.session$rc, id, 0, -1))
+  index <- grep(TRUE, lapply(comments, function(o) fromJSON(o)$user==user))
   ## keeping files corresponding to particular user
-  comments <- grep(user, fns)
-  files <- files[comments]
-  return(toJSON(files))
+  return(comments[[index]])
 }
 
 .get.git.res <- function(snippet) {
@@ -209,10 +171,8 @@ get.gist.user.comments <- function(id, user, ctx = .session$ctx) {
     notebook$content$files[i] <- notebook$content$files[1]
   }
   ## to get all the history versions mapped inside redis
-  redis.set(.session$rc, "snippet.files", toJSON(snippet.files))
-  index.scratch <- grep("scratch.R", snippet.files)
+  index.scratch <- grep(".versions", snippet.files)
   history.revision <- fromJSON(snippet.files[[index.scratch]]$content)
-  revisions <- redis.list.range(.session$rc, fromJSON(snippet)$guid, 0 , -1)
   if(length(history.revision) !=0 ) {
     for(i in 1:length(history.revision)) {
       notebook$content$history[[i]] <- notebook$content$history[[1]]
@@ -242,26 +202,13 @@ get.gist.user.comments <- function(id, user, ctx = .session$ctx) {
 }
 
 create.gist.comment <- function(id, content, ctx = .session$ctx) {
-  snippet <- .get.snippet.res(id, ctx)
-  snippet.list <- fromJSON(snippet)
-  files <- list()
-  for(i in 1:length(snippet.list$files)) {
-    files[[i]] <-  list(name=snippet.list$files[[i]]$name, content=snippet.list$files[[i]]$content)
-  }
-  fns <- as.vector(sapply(files, function(o) o$name)) 
-  comment.part <- length(grep("comment", fns))
-  len <- length(files)
-  ## HACK: storing comments as new file in snippets
-  files[[len+1]] <- list(name=paste0("comment ",(comment.part+1),"-",fromJSON(snippet)$userId), content=fromJSON(content)$body)
-  data.json <- paste0('{ "name" : "',snippet.list$name,'","description":"',snippet.list$name,'","isVisible": true,"isPublic": true ,"files" : ',toJSON(files),' }')
-  res <- sni.post.request(ctx, data.json, id)
   comment_res <- redis.get( .session$rc, "post_comment_res")
-  users <- redis.get( .session$rc, "users")
-  index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(snippet)$userId))
-  user <- fromJSON(users)$values[[index]]$name
+  users <- redis.get(.session$rc, "users")
+  index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$name == ctx$user$login))
   comment_res$content$body <- fromJSON(content)$body
-  comment_res$content$user$login <- user
-  comment_res$content$user$id <- fromJSON(snippet)$userId
+  comment_res$content$user$login <- ctx$user$login
+  comment_res$content$user$id <- fromJSON(users)$values[[index]]$id
+  redis.list(.session$rc, id, toJSON(list(user=ctx$user$login, comment=fromJSON(content)$body)))
   return(comment_res)
 }
 
