@@ -213,20 +213,21 @@ create.gist.comment <- function(id, content, ctx = .session$ctx) {
 }
 
 create.github.context <- function(api_url , client_id , client_secret , access_token = NULL, personal_token = NULL, max_etags = 10000, verbose = FALSE) {
-  ctx <- list(api_url = api_url, client_id= client_id, client_secret= client_secret, token= access_token)
-  url <- paste0("http://",strsplit(api_url, "/")[[1]][3], "/rest/api/1.0/users")
-  vals <- redis.get( .session$rc, "Key")
-  cSecret <- PKI.load.private.pem(client_secret)
-  users <- oauthGET.sni(url, consumerKey= client_id, consumerSecret = cSecret,
-   oauthKey = strsplit(access_token, "//")[[1]][1] , oauthSecret= strsplit(access_token, "//")[[1]][2], signMethod='RSA',
-   curl=getCurlHandle())
-  redis.set(.session$rc, "users", users)
-  data.json <- paste0('{ "name" : "sample","description":"sample", "isVisible": true,"isPublic": true ,"files" : [{ "name" : "scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
-  response <- sni.post.request(ctx , data.json)
-  sni.delete.request(fromJSON(response)$guid, ctx)
-  index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(response)$userId))
-  user <- fromJSON(users)$values[[index]]$name
-  ctx$user$login <- user
+  ctx <- list(api_url = api_url, client_id= client_id, client_secret= client_secret, token= access_token, authenticated = !is.null(access_token))
+  if(!is.null(access_token)) {
+    url <- paste0("http://",strsplit(api_url, "/")[[1]][3], "/rest/api/1.0/users")
+    cSecret <- PKI.load.private.pem(client_secret)
+    users <- oauthGET.sni(url, consumerKey= client_id, consumerSecret = cSecret,
+     oauthKey = strsplit(access_token, "//")[[1]][1] , oauthSecret= strsplit(access_token, "//")[[1]][2], signMethod='RSA',
+     curl=getCurlHandle())
+    redis.set(.session$rc, "users", users)
+    data.json <- paste0('{ "name" : "sample","description":"sample", "isVisible": true,"isPublic": true ,"files" : [{ "name" : "scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
+    response <- sni.post.request(ctx , data.json)
+    sni.delete.request(fromJSON(response)$guid, ctx)
+    index <- grep(TRUE, lapply(fromJSON(users)$values, function(o) o$id == fromJSON(response)$userId))
+    user <- fromJSON(users)$values[[index]]$name
+    ctx$user$login <- user
+  }
   .session$ctx <- ctx
   ctx
 }
