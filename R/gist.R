@@ -216,7 +216,7 @@ create.github.context <- function(api_url , client_id , client_secret , access_t
   ctx <- list(api_url = api_url, client_id= client_id, client_secret= client_secret, token= access_token, authenticated = !is.null(access_token))
   if(!is.null(access_token)) {
     url <- paste0("http://",strsplit(api_url, "/")[[1]][3], "/rest/api/1.0/users")
-    cSecret <- PKI.load.private.pem(client_secret)
+    cSecret <- PKI::PKI.load.private.pem(client_secret)
     users <- oauthGET.sni(url, consumerKey= client_id, consumerSecret = cSecret,
      oauthKey = strsplit(access_token, "//")[[1]][1] , oauthSecret= strsplit(access_token, "//")[[1]][2], signMethod='RSA',
      curl=getCurlHandle())
@@ -228,6 +228,7 @@ create.github.context <- function(api_url , client_id , client_secret , access_t
     user <- fromJSON(users)$values[[index]]$name
     ctx$user$login <- user
   }
+  class(ctx) <- "snippetcontext"
   .session$ctx <- ctx
   ctx
 }
