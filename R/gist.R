@@ -36,7 +36,7 @@ get.gist <- function(id, version = NULL, ctx = .session$ctx) {
       res
     } else {
       content <- '{"description":"Notebook1"}'
-      res <- create.snippet(content, ctx = NULL)
+      res <- create.gist(content, ctx = NULL)
       res   
     }
   }

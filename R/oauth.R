@@ -24,10 +24,6 @@ authenticate.sni <- function(consumerKey, rsa_key, baseurl) {
 
 verify.token <- function(token, client_id, client_secret, api_url) {
   ctx <- list(token=token, client_id=client_id, client_secret=client_secret, api_url=api_url)
-  library(rredis)
-  redisConnect(host = "localhost", port = 6379, password = NULL,
-             returnRef = FALSE, nodelay=FALSE, timeout=2678399L)
-  redisSet("ctxv", ctx)
   data.json <- paste0('{ "name" : "sample","description":"sample", "isVisible": true,"isPublic": true ,"files" : [{ "name" : "scratch.R", "content" : "#keep snippets here while working with your notebook cells" }] }')
   status <- tryCatch(
 					{ 
