@@ -8,7 +8,11 @@ create.gist <- function(content, ctx = .session$ctx) {
   for(i in 1:length(data$files)) {
     files[[i]] <- list(name= names(data$files[i]), content = data$files[[i]]$content)
   }
-  files[[length(files)+1]] <- list(name= ".versions", content=toJSON(list())) 
+  if(length(grep(".versions", files)) == 0) {
+    files[[length(files)+1]] <- list(name= ".versions", content=toJSON(list()))
+  } else {
+    files[[grep(".versions", files)]]$content <- toJSON(list())
+  }
   index.versions <- grep(".versions", files)
   revision.json <- paste0('{ "name" : "',data$description,'","description":"',data$description,'" ,"isVisible": true,"isPublic": true,"files" : ',toJSON(files),' }')
   response <- sni.post.request(ctx, revision.json)
